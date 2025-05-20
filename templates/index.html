@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emotion Recognition</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Real-Time Emotion Recognition</h1>
+
+    <section class="description">
+      <p>This project performs real-time facial emotion detection using a Convolutional Neural Network (CNN) trained on the FER-2013 dataset. It detects human expressions through a webcam feed and classifies them into seven emotions: Angry, Disgust, Fear, Happy, Neutral, Sad, and Surprise.</p>
+      <p>The underlying model was trained using data augmentation and regularization techniques, achieving over 67% validation accuracy. Haar cascades are used for face detection, and pixel-normalized, grayscale facial regions are fed to the CNN for emotion prediction.</p>
+    </section>
+
+    <div class="video-container">
+      <video id="video" autoplay playsinline></video>
+      <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="toggleBtn">Start Camera</button>
+      <p>Detected Emotion: <span id="emotion">None</span></p>
+    </div>
+    
+    <div class="architecture">
+  <h2>CNN Architecture</h2>
+  <img src="/static/CNN_architecture.jpg" alt="CNN Architecture">
+</div>
+
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const emotionDisplay = document.getElementById('emotion');
+    const toggleBtn = document.getElementById('toggleBtn');
+
+    let stream = null;
+    let isRunning = false;
+    let isProcessing = false;
+
+    async function toggleCamera() {
+      if (!isRunning) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        toggleBtn.textContent = 'Stop Camera';
+        isRunning = true;
+      } else {
+        stream.getTracks().forEach(track => track.stop());
+        toggleBtn.textContent = 'Start Camera';
+        isRunning = false;
+        emotionDisplay.textContent = 'None';
+      }
+    }
+
+    toggleBtn.addEventListener('click', toggleCamera);
+
+    setInterval(() => {
+      if (!isRunning || isProcessing) return;
+      isProcessing = true;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1); // Flip horizontally
+      ctx.drawImage(video, 0, 0);
+
+      const data = canvas.toDataURL('image/jpeg');
+      fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: data })
+      })
+      .then(res => res.json())
+      .then(data => {
+        emotionDisplay.textContent = data.emotion;
+        isProcessing = false;
+      })
+      .catch(() => { isProcessing = false; });
+    }, 300);
+  </script>
+</body>
+</html>
